@@ -1,172 +1,74 @@
-# Spider Striker — Web Crawler & Vulnerability Scanner
+# Spyder-Strick — AI-Powered Enterprise Security Assessment Platform
 
-> **Lightweight · Modular · Security-Oriented**  
-> Built for educational purposes and authorized penetration testing.
+> **Crawl · Detect · Correlate · Report** — for authorized security assessments only.
 
----
+Spyder-Strick discovers and tests web applications, APIs and enterprise apps,
+correlates findings into attack paths, optionally analyses them with a local or
+OpenAI-compatible LLM, and produces JSON/CSV/HTML reports plus a static dashboard.
 
-## Overview
+## Authorization — read first
 
-**Spider Striker** is a lightweight web crawling and vulnerability scanning tool designed to:
-- Map web applications and discover hidden endpoints
-- Perform basic security checks on extracted URLs
-- Help identify potential attack surfaces in web applications
-
-> Intended for **educational** and **ethical security testing** purposes only.
-
----
-
-## Features
-
-### 🕷️ Web Crawling Engine
-- Recursive crawling of target websites with depth control
-- URL discovery, extraction, and normalization
-- JavaScript-based endpoint detection
-- Parameter discovery in URLs
-
-### 🔍 Smart Discovery
-- `robots.txt` parsing support
-- `sitemap.xml` detection and extraction
-- Hidden endpoint enumeration
-- Basic JS file analysis for endpoints
-
-### 🔗 URL Management
-- Duplicate URL filtering
-- Query parameter extraction
-- Structured URL storage
-
-### 🛡️ Vulnerability Scanning
-- Detection of common injection patterns
-- Basic parameter fuzzing
-- Reflection-based checks (XSS indicators)
-- Heuristic-based risk scoring
-
----
-
-## Architecture
-
-```
-Spider-Striker/
-├── core/
-│   ├── crawler.py       → Web crawling logic (BFS + threading)
-│   ├── parser.py        → HTML, JS, robots.txt, sitemap parsing
-│   ├── requester.py     → HTTP request handling
-│   └── utils.py         → URL normalization, filtering helpers
-├── scanners/
-│   ├── sqli_scanner.py      → SQL Injection checks
-│   ├── xss_scanner.py       → XSS reflection detection
-│   ├── traversal_scanner.py → Path traversal checks
-│   ├── redirect_scanner.py  → Open redirect detection
-│   ├── headers_scanner.py   → Security headers analysis
-│   └── tech_scanner.py      → Technology fingerprinting
-├── payloads/
-│   ├── sqli.txt
-│   ├── xss.txt
-│   └── traversal.txt
-├── reports/             → Scan output reports
-├── main.py              → Entry point
-└── requirements.txt
-```
-
----
-
-## Workflow
-
-```
-[1] Input Target URL
-        ↓
-[2] Crawl Website (BFS + Threading)
-        ↓
-[3] Extract Endpoints (robots, sitemap, HTML, JS)
-        ↓
-[4] Clean & Normalize URLs
-        ↓
-[5] Run Vulnerability Scanners
-        ↓
-[6] Output Structured Report
-```
-
----
-
-## Requirements
-
-```
-python >= 3.8
-requests
-beautifulsoup4
-lxml
-```
-
----
+Only scan targets you are authorised to test. Local targets (`localhost`,
+`127.0.0.1`, `*.test`, `*.local`) need no flag; any other target requires
+`--authorize`, and every request is scope-checked (out-of-scope requests are blocked).
+Destructive testing is disabled by default: no `DROP`/`DELETE`/`xp_cmdshell`/
+shutdown payloads are ever sent, no data is exfiltrated, and SSRF is reported as
+`potential` only.
 
 ## Installation
 
 ```bash
 git clone https://github.com/OmarDLLFile/Spyder-Strick-Web-Scanner-Project.git
 cd Spyder-Strick-Web-Scanner-Project
-pip install -r requirements.txt
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
-
----
 
 ## Usage
 
 ```bash
-python main.py -u https://example.com
+# Local test target
+.venv/bin/python main.py -u http://localhost:8000
+
+# Remote target (only with written permission)
+.venv/bin/python main.py -u https://target.example --authorize --depth 2 --intensity medium
+
+# SAST + AI (Ollama local model; OpenAI-compatible needs AI_API_KEY in env)
+.venv/bin/python main.py -u http://localhost:8000 --sast ./myapp --ai-provider ollama --ai-model llama3.1
+
+# History, dashboard, serving reports
+.venv/bin/python main.py --list-scans
+.venv/bin/python main.py --dashboard
+.venv/bin/python main.py --serve --serve-port 8080
 ```
 
----
+See `docs/CONFIG.md` for the full CLI and `config.example.yaml` for YAML config.
 
-## Output Example
+## Features
 
+- **Crawling:** BFS threaded crawl, robots/sitemap, JS-file endpoint extraction,
+  OpenAPI/Swagger + GraphQL discovery, framework fingerprinting, forms
+- **Detection:** SQLi (error + boolean-blind), NoSQL, XSS (reflected + stored check),
+  traversal/LFI, open redirect, command injection, SSTI, SSRF, headers/cookies/CORS,
+  clickjacking, CSRF, JWT, sensitive-data exposure, rate-limit probe
+- **API security:** OpenAPI parsing, BOLA/IDOR, missing auth, GraphQL introspection,
+  excessive data exposure
+- **Enterprise:** SSO/SAML/OAuth/OIDC discovery, admin exposure, cross-tenant IDOR
+- **SAST:** pattern scanner for Python, JS/TS, PHP, Java, C#, Go (+ optional bandit)
+- **AI:** Ollama / OpenAI-compatible providers; redaction, prompt-injection
+  resistance, JSON validation, audit log; AI never marks a finding `confirmed`
+- **Correlation:** attack paths, MITRE ATT&CK mapping, OWASP/CWE/CVSS, risk scoring, dedup
+- **Reporting:** JSON, CSV, HTML (executive summary, attack paths, AI analysis),
+  SQLite history, static dashboard
+
+## Testing
+
+```bash
+.venv/bin/python -m pytest tests/ -q   # 20 tests against a local vulnerable fixture app
 ```
-[+] Crawling started...
-[+] Found 124 URLs
-[+] Discovered 12 hidden endpoints
-[+] Scanning completed
 
-[!] Potential Issues:
-  - XSS reflection detected:     /search?q=
-  - Suspicious parameter:        /login?redirect=
-  - Missing security header:     X-Frame-Options
-```
+## Limitations (honest)
 
----
-
-## Limitations
-
-| Limitation | Details |
-|---|---|
-| Not full DAST | Heuristic-based, not comprehensive |
-| No auth handling | Cannot scan authenticated pages |
-| No WAF bypass | Basic payloads only |
-| False positives | Heuristics may flag false issues |
-
----
-
-## Future Improvements
-
-- [ ] Advanced JS reverse engineering
-- [ ] Better crawler scheduling system
-- [ ] ML-based anomaly detection
-- [ ] Authentication-aware crawling
-- [ ] Burp Suite integration
-
----
-
-## Ethical Use
-
-This tool is intended **only** for:
-- Educational purposes
-- Authorized penetration testing
-- Security research in controlled environments
-
-> Unauthorized use against systems without explicit permission is **strictly prohibited**.
-
----
-
-## Author
-
-**Omar**  
-Security & Systems Enthusiast  
-[GitHub: OmarDLLFile](https://github.com/OmarDLLFile)
+- No headless-browser JS rendering — SPA routes are found by static JS analysis only.
+- No PDF export (JSON/CSV/HTML only). No distributed scanning or scan resumption.
+- AI was tested in disabled/unavailable mode here; live Ollama/OpenAI verification
+  needs a running provider. See `docs/TECHNICAL_ASSESSMENT.md`.

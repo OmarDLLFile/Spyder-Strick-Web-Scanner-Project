@@ -4,3 +4,5 @@ lxml
 colorama
 aiohttp
 selenium
+pyyaml
+pytest

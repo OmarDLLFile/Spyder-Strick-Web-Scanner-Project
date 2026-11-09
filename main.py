@@ -1,278 +1,103 @@
-import sys
-import time
-import os
-from urllib.parse import *
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
+"""Spyder-Strick CLI (thin wrapper over engine.ScanEngine).
 
-from core.requester import Requester
-from core.crawler import Crawler
-from core.parser import FormParser
-from core.reporter import ReportGenerator
-from core.utils import Utils
+Usage:
+  python main.py -u http://localhost:8000 --authorize
+  python main.py -u https://example.com --authorize --depth 2 --intensity medium
+  python main.py --dashboard            # regenerate dashboard from history
+  python main.py --serve                # serve reports/ on http://localhost:8080
+  python main.py --list-scans
+  python main.py -u http://localhost:8000 --sast ./myapp --ai-provider ollama --ai-model llama3.1
+Positional URL also works: python main.py http://localhost:8000
+"""
+from __future__ import annotations
+import argparse, http.server, logging, os, sys
 
-from scanners.xss_scanner import XSS_Scanner
-from scanners.sqli_scanner import SQLiScanner
-from scanners.redirect_scanner import OpenRedirectScanner
-from scanners.traversal_scanner import DirectoryTraversalScanner
-from scanners.headers_scanner import HeaderScanner
-from scanners.tech_scanner import TechnologyScanner
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 
-class MiniScanner:
-
-    def __init__(self, target_url):
-        self.target_url = target_url
-
-        self.requester = Requester()
-        self.crawler = Crawler(self.requester, self.target_url)
-        self.reporter = ReportGenerator()
-
-        # scanners
-        self.xss_scanner = XSS_Scanner(self.requester)
-        self.sqli_scanner = SQLiScanner(self.requester)
-        self.redirect_scanner = OpenRedirectScanner(self.requester)
-        self.traversal_scanner = DirectoryTraversalScanner(self.requester)
-        self.header_scanner = HeaderScanner()
-        self.tech_scanner = TechnologyScanner()
-        
-        self.lock = threading.Lock()
-        self.scanned_urls = set()
-        
-    def normalize_url(self, url):
-        p = urlsplit(url)
-        return urlunsplit((p.scheme, p.netloc, p.path, "", ""))
-
-    # --------------------------
-    # START
-    # --------------------------
-    def start(self):
-
-        Utils.print_banner()
-
-        print(Utils.color_text(f"[+] Target: {self.target_url}", "blue"))
-
-        start_time = time.time()
-
-        urls = self.run_crawler()
-        self.scan_urls(urls)
-        self.generate_reports()
-
-        end_time = time.time()
-
-        print(
-            Utils.color_text(
-                f"\n[+] Scan Finished in {Utils.calculate_response_time(start_time, end_time)} seconds",
-                "green"
-            )
-        )
-
-    # --------------------------
-    # CRAWLER WRAPPER
-    # --------------------------
-    def run_crawler(self):
-
-        print(Utils.color_text("\n[+] Starting Crawling...", "yellow"))
-
-        urls = self.crawler.crawl(self.target_url, depth=2) or []
-
-        urls = list(set(urls))
-
-        if self.target_url not in urls:
-            urls.append(self.target_url)
-
-        print(Utils.color_text(f"[+] Found {len(urls)} URLs", "green"))
-
-        return urls
-
-    # --------------------------
-    # URL FILTER
-    # --------------------------
-    def should_scan(self, url):
-
-        # avoid static junk (performance boost)
-        static_ext = (".jpg", ".png", ".css", ".js", ".svg", ".woff", ".ico", ".mp4")
-
-        if url.lower().endswith(static_ext):
-            return False
-
-        # same domain only
-        return Utils.is_same_domain(self.target_url, url)
-
-    # --------------------------
-    # SINGLE URL SCAN
-    # --------------------------
-    def scan_single_url(self, url):
-
-        # --------------------------
-        # THREAD SAFE DEDUP
-        # --------------------------
-        
-        url = self.normalize_url(url)
-
-        if not self.should_scan(url):
-            return
-
-        with self.lock:
-            if url in self.scanned_urls:
-                return
-            self.scanned_urls.add(url)
-
-        # --------------------------
-        # FILTER CHECK
-        # --------------------------
-        if not self.should_scan(url):
-            return
-
-        print(Utils.color_text(f"\n[+] Scanning: {url}", "blue"))
-
-        try:
-            response = self.requester.get(url)
-            
-            technologies = self.tech_scanner.scan(response)
-
-            if technologies:
-
-                with self.lock:
-                    self.reporter.add_result({
-                        "type": "Technology Fingerprint",
-                        "url": url,
-                        "technologies": technologies,
-                        "severity": "INFO"
-                    })
-
-                print(
-                    Utils.color_text(
-                        f"[+] Technologies Detected: {', '.join(technologies)}",
-                        "cyan"
-                    )
-                )
-
-            if not response:
-                return
-
-            # --------------------------
-            # HEADERS SCAN
-            # --------------------------
-            missing_headers = self.header_scanner.scan(response)
-
-            if missing_headers:
-                with self.lock:
-                    self.reporter.add_result({
-                        "type": "Missing Security Headers",
-                        "url": url,
-                        "missing_headers": missing_headers,
-                        "status_code": response.status_code
-                    })
-
-            # --------------------------
-            # OPEN REDIRECT
-            # --------------------------
-            redirect_results = self.redirect_scanner.scan_url(url) or []
-
-            if redirect_results:
-                with self.lock:
-                    self.reporter.add_results(redirect_results)
-
-            # --------------------------
-            # DIRECTORY TRAVERSAL
-            # --------------------------
-            traversal_results = self.traversal_scanner.scan_url(url) or []
-
-            if traversal_results:
-                with self.lock:
-                    self.reporter.add_results(traversal_results)
-
-            # --------------------------
-            # FORM PARSING
-            # --------------------------
-            # forms = FormParser.extract_forms(response.text) or []
-            forms = [
-                f for f in (FormParser.extract_forms(response.text) or [])
-                if f and isinstance(f, dict)
-            ]
-
-            if forms:
-                print(Utils.color_text(f"[+] Found {len(forms)} Forms", "green"))
-
-            # --------------------------
-            # FORM SCANNING
-            # --------------------------
-            for form in forms:
-
-                # XSS
-                xss_result = self.xss_scanner.scan_form(url, form)
-                if xss_result:
-                    with self.lock:
-                        self.reporter.add_result(xss_result)
-
-                # SQLi
-                sqli_results = self.sqli_scanner.scan_form(url, form)
-                if sqli_results:
-                    with self.lock:
-                        self.reporter.add_results(sqli_results)
-
-        except Exception as e:
-
-            # thread-safe error logging
-            with self.lock:
-                self.reporter.add_result({
-                    "type": "ERROR",
-                    "url": url,
-                    "error": str(e)
-                })
-        
-    # --------------------------
-    # PARALLEL SCAN ENGINE
-    # --------------------------
-    def scan_urls(self, urls):
-
-        # max_workers = min(40, (os.cpu_count() or 4) * 5)
-        max_workers = min(20, (os.cpu_count() or 4) * 2)
-
-        print(
-            Utils.color_text(
-                f"\n[+] Starting Parallel Scan with {max_workers} workers...",
-                "yellow"
-            )
-        )
-
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-
-            futures = [
-                executor.submit(self.scan_single_url, url)
-                for url in urls
-            ]
-
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    self.reporter.add_result({
-                        "type": "THREAD_ERROR",
-                        "error": str(e)
-                    })
-
-    # --------------------------
-    # REPORT
-    # --------------------------
-    def generate_reports(self):
-
-        print(Utils.color_text("\n[+] Generating Reports...", "yellow"))
-
-        self.reporter.print_summary()
-        self.reporter.generate_json_report()
-        self.reporter.generate_html_report()
+def build_parser():
+    p = argparse.ArgumentParser(prog="spyder-strick",
+                                description="Spyder-Strick — AI-powered enterprise security assessment platform")
+    p.add_argument("url", nargs="?", help="Target URL (or use -u/--url)")
+    p.add_argument("-u", "--url", dest="url_opt", default=None)
+    p.add_argument("--depth", type=int, default=2)
+    p.add_argument("--workers", type=int, default=10)
+    p.add_argument("--delay", type=float, default=0.1, help="Min seconds between requests")
+    p.add_argument("--max-requests", type=int, default=2000)
+    p.add_argument("--timeout", type=int, default=10)
+    p.add_argument("--authorize", action="store_true",
+                   help="Confirm you are authorised to test this target (required for non-local targets)")
+    p.add_argument("--allow", action="append", default=[], help="Extra allowed host (repeatable)")
+    p.add_argument("--auth", default="", help="user:pass or 'Bearer <token>'")
+    p.add_argument("--cookies", default="", help="Cookie header value, e.g. 'session=abc; x=1'")
+    p.add_argument("--openapi", default="", help="OpenAPI/Swagger spec URL or local file")
+    p.add_argument("--sast", default="", help="Path to source code for SAST")
+    p.add_argument("--ai-provider", default="none", choices=["none", "ollama", "openai"])
+    p.add_argument("--ai-model", default="")
+    p.add_argument("--ai-base-url", default="")
+    p.add_argument("--intensity", default="medium", choices=["low", "medium", "high"])
+    p.add_argument("--output-dir", default="reports")
+    p.add_argument("--format", default="all", choices=["json", "html", "csv", "all"])
+    p.add_argument("--no-verify", action="store_true", help="Disable TLS verification (test targets only)")
+    p.add_argument("--config", default="", help="YAML config file")
+    p.add_argument("--dashboard", action="store_true", help="Regenerate reports/dashboard.html from history")
+    p.add_argument("--serve", action="store_true", help="Serve reports/ via stdlib http.server on :8080")
+    p.add_argument("--serve-port", type=int, default=8080)
+    p.add_argument("--list-scans", action="store_true", help="List past scans from history DB")
+    return p
 
 
-# --------------------------
-# ENTRY POINT
-# --------------------------
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+    target = args.url_opt or args.url
+
+    if args.list_scans:
+        from core.store import ScanStore
+        store = ScanStore(f"{args.output_dir}/spyder.db")
+        for s in store.list_scans():
+            print(f"#{s['id']} {s['target']} — {s['total_findings']} findings "
+                  f"(C:{s['critical']} H:{s['high']} M:{s['medium']} L:{s['low']} I:{s['info']}) @ {s['started_at']}")
+        store.close()
+        return 0
+
+    if args.dashboard:
+        from core.reporter import build_dashboard
+        path = build_dashboard(f"{args.output_dir}/spyder.db", f"{args.output_dir}/dashboard.html")
+        print(f"[+] Dashboard: {path}")
+        return 0
+
+    if args.serve:
+        os.chdir(args.output_dir)
+        print(f"[+] Serving {os.getcwd()} at http://localhost:{args.serve_port} (Ctrl+C to stop)")
+        http.server.ThreadingHTTPServer(("127.0.0.1", args.serve_port),
+                                        http.server.SimpleHTTPRequestHandler).serve_forever()
+        return 0
+
+    if not target:
+        build_parser().print_help()
+        print("\nError: a target URL is required (positional or -u/--url).", file=sys.stderr)
+        return 2
+    if not target.startswith(("http://", "https://")):
+        target = "http://" + target
+
+    from core.config import ScanConfig
+    cfg = ScanConfig.from_yaml(args.config, target_url=target, depth=args.depth, workers=args.workers,
+                               delay=args.delay, max_requests=args.max_requests, timeout=args.timeout,
+                               verify_tls=not args.no_verify, intensity=args.intensity,
+                               authorize=args.authorize, allow_hosts=args.allow,
+                               auth=args.auth, cookies=args.cookies, openapi=args.openapi,
+                               sast_path=args.sast, ai_provider=args.ai_provider, ai_model=args.ai_model,
+                               ai_base_url=args.ai_base_url, output_dir=args.output_dir,
+                               formats=["json", "html", "csv"] if args.format == "all" else [args.format])
+    from engine.scanner import ScanEngine
+    try:
+        engine = ScanEngine(cfg)
+    except ValueError as exc:
+        print(f"[!] {exc}", file=sys.stderr)
+        return 2
+    engine.run()
+    return 0
+
+
 if __name__ == "__main__":
-
-    if len(sys.argv) != 2:
-        print("Usage: python main.py <target_url>")
-        sys.exit(1)
-
-    scanner = MiniScanner(sys.argv[1])
-    scanner.start()
+    sys.exit(main())

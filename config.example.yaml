@@ -1,0 +1,17 @@
+# Spyder-Strick example config — copy to config.yaml and edit.
+# NEVER put API keys or passwords in this file. AI keys come from the
+# environment variable AI_API_KEY only.
+target_url: http://127.0.0.1:8000
+depth: 2
+workers: 10
+delay: 0.1
+max_requests: 2000
+timeout: 10
+verify_tls: true
+intensity: medium
+authorize: false
+allow_hosts: []
+ai_provider: none   # none | ollama | openai
+ai_model: llama3.1
+ai_base_url: http://localhost:11434
+output_dir: reports

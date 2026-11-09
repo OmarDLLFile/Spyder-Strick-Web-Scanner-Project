@@ -152,18 +152,9 @@ class TechnologyScanner:
         # --------------------------
         # Cloudflare Detection
         # --------------------------
-        cloudflare_headers = [
-            "CF-RAY",
-            "CF-Cache-Status",
-            "Server"
-        ]
-
-        if any(h in response.headers for h in cloudflare_headers):
-
-            server_header = response.headers.get("Server", "")
-
-            if "cloudflare" in server_header.lower():
-                detected.append("Cloudflare")
+        if any(h in response.headers for h in ("CF-RAY", "CF-Cache-Status")) or \
+                "cloudflare" in response.headers.get("Server", "").lower():
+            detected.append("Cloudflare")
 
         # remove duplicates
         return list(set(detected))
